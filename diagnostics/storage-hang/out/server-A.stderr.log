@@ -1,0 +1,61 @@
+Fatal Python error: Aborted
+
+Thread 0x0000ffff9b7ef1a0 (most recent call first):
+  File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  File "/workspace/src/frame_proxy/storage/repository.py", line 42 in create_clip
+  File "/workspace/src/frame_proxy/service/clips.py", line 72 in admit
+  File "/workspace/src/frame_proxy/http/router.py", line 74 in _route
+  File "/workspace/src/frame_proxy/http/router.py", line 41 in handle
+  File "/workspace/src/frame_proxy/http/server.py", line 49 in _handle
+  File "/workspace/src/frame_proxy/http/server.py", line 26 in do_PUT
+  File "/usr/lib/python3.11/http/server.py", line 420 in handle_one_request
+  File "/usr/lib/python3.11/http/server.py", line 432 in handle
+  File "/usr/lib/python3.11/socketserver.py", line 755 in __init__
+  File "/usr/lib/python3.11/socketserver.py", line 361 in finish_request
+  File "/usr/lib/python3.11/socketserver.py", line 691 in process_request_thread
+  File "/usr/lib/python3.11/threading.py", line 975 in run
+  File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+  File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+Thread 0x0000ffff9bfff1a0 (most recent call first):
+  File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  File "/workspace/src/frame_proxy/storage/repository.py", line 42 in create_clip
+  File "/workspace/src/frame_proxy/service/clips.py", line 72 in admit
+  File "/workspace/src/frame_proxy/http/router.py", line 74 in _route
+  File "/workspace/src/frame_proxy/http/router.py", line 41 in handle
+  File "/workspace/src/frame_proxy/http/server.py", line 49 in _handle
+  File "/workspace/src/frame_proxy/http/server.py", line 26 in do_PUT
+  File "/usr/lib/python3.11/http/server.py", line 420 in handle_one_request
+  File "/usr/lib/python3.11/http/server.py", line 432 in handle
+  File "/usr/lib/python3.11/socketserver.py", line 755 in __init__
+  File "/usr/lib/python3.11/socketserver.py", line 361 in finish_request
+  File "/usr/lib/python3.11/socketserver.py", line 691 in process_request_thread
+  File "/usr/lib/python3.11/threading.py", line 975 in run
+  File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+  File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+Thread 0x0000ffffa0a5f1a0 (most recent call first):
+  File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  File "/workspace/src/frame_proxy/storage/repository.py", line 42 in create_clip
+  File "/workspace/src/frame_proxy/service/clips.py", line 72 in admit
+  File "/workspace/src/frame_proxy/http/router.py", line 74 in _route
+  File "/workspace/src/frame_proxy/http/router.py", line 41 in handle
+  File "/workspace/src/frame_proxy/http/server.py", line 49 in _handle
+  File "/workspace/src/frame_proxy/http/server.py", line 26 in do_PUT
+  File "/usr/lib/python3.11/http/server.py", line 420 in handle_one_request
+  File "/usr/lib/python3.11/http/server.py", line 432 in handle
+  File "/usr/lib/python3.11/socketserver.py", line 755 in __init__
+  File "/usr/lib/python3.11/socketserver.py", line 361 in finish_request
+  File "/usr/lib/python3.11/socketserver.py", line 691 in process_request_thread
+  File "/usr/lib/python3.11/threading.py", line 975 in run
+  File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+  File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+Current thread 0x0000ffffa1c99700 (most recent call first):
+  File "/usr/lib/python3.11/selectors.py", line 415 in select
+  File "/usr/lib/python3.11/socketserver.py", line 233 in serve_forever
+  File "/workspace/src/frame_proxy/main.py", line 19 in _serve
+  File "/workspace/src/frame_proxy/main.py", line 57 in main
+  File "/workspace/src/frame_proxy/__main__.py", line 5 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 198 in _run_module_as_main

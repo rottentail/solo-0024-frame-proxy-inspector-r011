@@ -1,0 +1,122 @@
+
+========================================================================
+PHASE 0  setup: generate footage with the production AVI writer
+========================================================================
+  [evidence] sample AVI: 470376 bytes written by `frame_proxy demo-avi`
+
+========================================================================
+PHASE 1  server A baseline (data root rootA, no fault injection)
+========================================================================
+  [evidence] server A: pid=2339 threads=1
+  PUT  /v1/clips/clip-base-a                                -> 201 in 0.01s
+       {"clip":{"clip_id":"clip-base-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+  GET  /v1/clips/clip-base-a                                -> 200 in 0.00s
+       {"clip":{"clip_id":"clip-base-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+  GET  /health                                              -> 200 in 0.00s
+       {"status":"ok"}
+
+========================================================================
+PHASE 2  storage anomaly strikes one key: the lock path for clip-stuck-a becomes a DIRECTORY
+========================================================================
+  [evidence] injected fault: /tmp/frame-proxy-diag/data/rootA/locks/clip-clip-stuck-a.lock is a directory; open('a+b') on it raises IsADirectoryError (a real OSError from the storage layer)
+  PUT  /v1/clips/clip-stuck-a  (first request, fault active) -> 500 in 0.00s  (expect 500 storage_failure)
+       {"error":{"code":"storage_failure","message":"clip storage could not be committed"}}
+  GET  /v1/clips/clip-stuck-a                               -> 404 in 0.00s  (nothing was published)
+       {"error":{"code":"clip_not_found","message":"clip was not found","details":{"clip_id":"clip-stuck-a"}}}
+  [evidence] data root: clips/ now contains: clip-base-a
+
+========================================================================
+PHASE 3  fault cleared (directory removed); storage is healthy again
+========================================================================
+  [evidence] locks dir: contents: clip-clip-base-a.lock
+  PUT  /v1/clips/clip-free-b  (unrelated id)                -> 201 in 0.00s  (unrelated id still works)
+       {"clip":{"clip_id":"clip-free-b","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+
+========================================================================
+PHASE 4  the wedge: every later write for clip-stuck-a hangs
+========================================================================
+  PUT  /v1/clips/clip-stuck-a  (retry #1, fault already cleared) -> TIMEOUT in 4.01s  (expect TIMEOUT)
+       no response within 4.0s
+  PUT  /v1/clips/clip-stuck-a  (retry #2)                   -> TIMEOUT in 4.00s  (expect TIMEOUT, NOT 409 conflict)
+       no response within 4.0s
+  [evidence] thread count: before wedge=1, after 2 stuck PUTs=3 (+2 permanently parked threads)
+
+========================================================================
+PHASE 5  why the requests never end: parked on an in-process lock
+========================================================================
+  [evidence] thread 2339: wchan='poll_schedule_timeout.constprop.0' (futex => threading.Lock, not a flock syscall)
+  [evidence] thread 2347: wchan='futex_do_wait' (futex => threading.Lock, not a flock syscall)
+  [evidence] thread 2360: wchan='futex_do_wait' (futex => threading.Lock, not a flock syscall)
+  [evidence] lslocks -p A: no file locks held by server A at all
+  GET  /health                                              -> 200 in 0.00s
+       {"status":"ok"}
+  GET  /v1/clips/clip-base-a                                -> 200 in 0.00s
+       {"clip":{"clip_id":"clip-base-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+  GET  /v1/clips/clip-stuck-a                               -> 404 in 0.00s  (reads never take the lock)
+       {"error":{"code":"clip_not_found","message":"clip was not found","details":{"clip_id":"clip-stuck-a"}}}
+  PUT  /v1/clips/clip-free-c  (another unrelated id)        -> 201 in 0.01s
+       {"clip":{"clip_id":"clip-free-c","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+
+========================================================================
+PHASE 6  second process B, SAME data root: the wedge is process-local
+========================================================================
+  PUT  B: /v1/clips/clip-stuck-a                            -> 201 in 0.01s  (B has its own _THREAD_LOCKS and no flock is held by A)
+       {"clip":{"clip_id":"clip-stuck-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width"...
+  GET  A: /v1/clips/clip-stuck-a                            -> 200 in 0.00s  (A now reads B's committed record)
+       {"clip":{"clip_id":"clip-stuck-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width"...
+  PUT  A: /v1/clips/clip-stuck-a  (object exists now!)      -> TIMEOUT in 4.01s  (still TIMEOUT -- the leaked lock is checked before the 409 check)
+       no response within 4.0s
+  [evidence] thread count: server A now has 4 threads
+
+========================================================================
+PHASE 7  stack proof: SIGABRT server A, faulthandler dumps all threads
+========================================================================
+  [evidence] faulthandler dump of server A: 'lock.py", line 31 in __enter__' appears 3 time(s); full dump: out/server-A.stderr.log
+  [evidence] parked frame: File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  [evidence] parked frame: File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  [evidence] parked frame: File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+
+========================================================================
+PHASE 8  restart A with the same data root: behaviour changes
+========================================================================
+  PUT  /v1/clips/clip-stuck-a                               -> 409 in 0.00s  (fresh process: instant 409 (B created it), no hang)
+       {"error":{"code":"conflict","message":"clip identifier already exists","details":{"clip_id":"clip-stuck-a"}}}
+  PUT  /v1/clips/clip-new-d                                 -> 201 in 0.00s  (fresh process: new id works)
+       {"clip":{"clip_id":"clip-new-d","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":1...
+
+========================================================================
+PHASE 9  scenario B: fault at the 3rd lock acquisition of one inspection (server C, shim)
+========================================================================
+  PUT  /v1/clips/clip-scan-a                                -> 201 in 0.02s
+       {"clip":{"clip_id":"clip-scan-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+  [evidence] armed fault: let 2 flock(LOCK_EX) pass on inspection-pending-a, fault the 3rd (the final 'indexed' commit)
+  POST /v1/clips/clip-scan-a/inspections {inspection-pending-a} -> TIMEOUT in 4.01s  (the FIRST request itself hangs inside _mark_failed)
+       no response within 4.0s
+  GET  /v1/inspections/inspection-pending-a                 -> 200 in 0.00s  (record is published as 'scanning' and can never advance)
+       {"inspection":{"inspection_id":"inspection-pending-a","clip_id":"clip-scan-a","state":"scanning","sensitivity":0.55,"sample_stride":1,"min_scene_frames":2,"s...
+  POST same inspection id again                             -> TIMEOUT in 4.01s  (wedged id: TIMEOUT)
+       no response within 4.0s
+  POST different id {inspection-ok-b}                       -> 201 in 0.06s  (unrelated id completes the whole scan)
+       {"inspection":{"inspection_id":"inspection-ok-b","clip_id":"clip-scan-a","state":"indexed","sensitivity":0.55,"sample_stride":1,"min_scene_frames":2,"sampled...
+  [evidence] faulthandler dump of server C: '_mark_failed' appears 1 time(s); full dump: out/server-C.stderr.log
+  [evidence] parked chain: File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  [evidence] parked chain: File "/workspace/src/frame_proxy/service/inspections.py", line 51 in create
+  [evidence] parked chain: File "/workspace/src/frame_proxy/storage/lock.py", line 31 in __enter__
+  [evidence] parked chain: File "/workspace/src/frame_proxy/service/inspections.py", line 105 in _mark_failed
+  [evidence] parked chain: File "/workspace/src/frame_proxy/service/inspections.py", line 87 in create
+
+========================================================================
+PHASE 10  scenario D: fault at __exit__ (LOCK_UN) -> 500 but fully committed (server D, shim)
+========================================================================
+  [evidence] armed fault: fault the flock(LOCK_UN) for clip-half-a once
+  PUT  /v1/clips/clip-half-a                                -> 500 in 0.01s  (client sees 500 storage_failure ...)
+       {"error":{"code":"storage_failure","message":"clip storage could not be committed"}}
+  GET  /v1/clips/clip-half-a                                -> 200 in 0.00s  (... yet record AND media were committed)
+       {"clip":{"clip_id":"clip-half-a","state":"registered","digest":"e6a70a276b3263ae14557f5db9feda35524797846fde99bdc48cf1a079fda687","byte_size":470376,"width":...
+  PUT  /v1/clips/clip-half-a  (retry)                       -> TIMEOUT in 4.01s  (wedged: TIMEOUT instead of the deserved 409)
+       no response within 4.0s
+  [evidence] lslocks -p D: no file locks held (abandoned handle was reclaimed)
+
+========================================================================
+ALL PHASES DONE -- artifacts under /tmp/frame-proxy-diag/out
+========================================================================

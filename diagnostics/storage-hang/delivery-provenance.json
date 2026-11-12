@@ -1,0 +1,15 @@
+{
+  "packaging": "验收侧将模型在容器/tmp中产生的原始脚本、日志与最终报告原文归入交付快照，未修改模型文件内容或生产代码。",
+  "source_session": "3fd19a5d-9ca3-44b7-9554-0fdf7af0da76",
+  "original_runtime_root": "/tmp/frame-proxy-diag",
+  "known_issue": "原命令重复运行在已有数据根触发FileExistsError；未修补。",
+  "files": {
+    "report.md": "e89b4bf01c5f649dc1feafdbcf5d0a942dc3dc451e4c9f056b48236915377069",
+    "run_diagnosis.py": "0d3e8c07ecc5ae6cea05a3669e08427394d7e41e9e7fb677dac7f8d5b2c6c328",
+    "out/run.log": "8b54a17455ee92f040e0ae312927286a61b4bd9716b1de2d2a8bae1a1c2ef0b6",
+    "out/server-C.stderr.log": "85bc229d88daf4f2247ad3741ae1d5b81a3bde128afd3a7741c8c89d56b20c75",
+    "out/server-D.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "out/server-A.stderr.log": "f47c540b698cdefa8572d481a9ca418629fb2eb3b12105d3738fde8a96506134",
+    "shim/sitecustomize.py": "1c614fa209698072acf713b327d362a2630466d53df2296d9ce185e05bd9a161"
+  }
+}
